@@ -7,10 +7,55 @@ from typing import Optional
 from scipy.stats import beta
 
 NUM_TRIALS = 10000
-EPSILON = 0.1
+EPSILON = 0.15
 Bernoulli_p = [0.2, 0.5, 0.75]
 Gaussian_params = [(5,2), (6,2), (1,5)]
 
+class Epsilon:
+    def __init__(self, epsilon: float):
+        self.__epsilon = epsilon
+
+    @property
+    def epsilon(self):
+        return self.__epsilon
+    
+    def __call__(self) -> float:
+        """ The epsilon value is given by the derived class """
+        raise NotImplementedError("epsilon() has to be implemented in the derived class")
+        
+class CstEpsilon(Epsilon):
+    def __init__(self, epsilon: float):
+        super().__init__(epsilon)
+
+    def __call__(self) -> float:
+        return self.epsilon
+        
+class ExpDecayEpsilon(Epsilon):
+    """ Exponentialy decaying epsilon value """
+    def __init__(self, epsilon: float):
+        super().__init__(epsilon)
+        self.__count = 0
+        self.__alpha = 0.99
+
+    def __call__(self) -> float:
+        epsilon = self.epsilon * self.__alpha**self.__count
+        self.__count += 1
+        return epsilon
+       
+class LinDecayEpsilon(Epsilon):
+    """ Linearly decaying epsilon value """
+    def __init__(self, epsilon: float):
+        super().__init__(epsilon)
+        self.__count = 0
+        self.__k = 0.0007
+
+    def __call__(self) -> float:
+        epsilon = max(self.epsilon - self.__k*self.__count, 0)
+        print(epsilon)
+        self.__count += 1
+        return epsilon
+
+           
 class Distribution:
     pass
 
@@ -94,13 +139,13 @@ class Beta(Distribution):
         return self.__alpha / (self.__alpha + self.__beta)
         
     def __call__(self) -> float:
-        return np.random.beta(alpha, beta)
+        return np.random.beta(self.alpha, self.beta)
 
 
 class BanditAlgorithm:
     """ Interface for all algorithms that are used for the bandit selection. """
     
-    def __init__(self, epsilon: float, bandits: List[Bandit]):
+    def __init__(self, epsilon: Epsilon, bandits: List[Bandit]):
         self.epsilon = epsilon
         self.bandits = np.array(bandits)
         self.bandits_count = len(bandits)
@@ -109,7 +154,7 @@ class BanditAlgorithm:
         self.chosen = None # Keep track of the last chosen bandit
 
     def explore(self) -> Optional[int]:
-        if np.random.random() < self.epsilon:
+        if np.random.random() < self.epsilon():
             return np.random.randint(len(self.bandits))
         return None
 
@@ -140,7 +185,7 @@ class BanditAlgorithm:
 class EpsilonGreedy(BanditAlgorithm):
     """ Implementation of the Epsilon-Greedy algorithm for bandit selection """
 
-    def __init__(self, epsilon: float, bandits: List[Bandit]) -> None:
+    def __init__(self, epsilon: Epsilon, bandits: List[Bandit]) -> None:
         super().__init__(epsilon, bandits)
         self.bandits_Q: List[float] = np.zeros(self.bandits_count)
         
@@ -158,7 +203,7 @@ class EpsilonGreedy(BanditAlgorithm):
 
 class UCB(EpsilonGreedy):
     """ Implementation of the Upper-Confidence-Bound algorithm for bandit selection """
-    def __init__(self, epsilon: float, bandits: List[Bandit], c: float = 2):
+    def __init__(self, epsilon: Epsilon, bandits: List[Bandit], c: float = 2):
         self.c = c
         super().__init__(epsilon, bandits)
     
@@ -181,7 +226,7 @@ class TS(BanditAlgorithm):
     Thompson Sampling algorithm for bandit selection.
     The implementation is done only for a Bernoulli likelihood.
     """
-    def __init__(self, epsilon: float, bandits: List[Bandit]):
+    def __init__(self, epsilon: Epsilon, bandits: List[Bandit]):
         super().__init__(epsilon, bandits)
         self.__Beta = np.array([[1, 1] for _ in range(self.bandits_count)])
             
@@ -260,12 +305,17 @@ if __name__=="__main__":
     # bandits = [Bandit(Gaussian(mean, stdev)) for (mean, stdev) in Gaussian_params]
     bandits = [Bandit(Bernoulli(p)) for p in Bernoulli_p]
 
+    # Epsilon for the epsilon-greedy algo
+    # epsilon = CstEpsilon(EPSILON)
+    epsilon = ExpDecayEpsilon(EPSILON)
+    #epsilon = LinDecayEpsilon(EPSILON)
+    
     # Algorithm for the bandit selection
-    # algorithm = EpsilonGreedy(EPSILON, bandits)
+    # algorithm = EpsilonGreedy(epsilon, bandits)
     # or (UCB with c=0.8 for example)
-    # algorithm = UCB(EPSILON, bandits, c=0.8)
+    # algorithm = UCB(epsilon, bandits, c=0.8)
     # or
-    algorithm = TS(EPSILON, bandits)
+    algorithm = TS(epsilon, bandits)
 
     # Create the Test object and run
     test = Test(NUM_TRIALS, algorithm)
