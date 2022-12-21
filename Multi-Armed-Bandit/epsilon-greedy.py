@@ -65,12 +65,17 @@ class Bandit:
         """ R is the distribution for the reward (Bernoulli or Gaussian) """
         self.R = R
         self.__N: int = 0 # Number of time this bandit was selected
+        self.__e: float = 0 # Estimate of E
         # Define the type of a bandit as the distribution used for the reward
         self.bandit_type = R.__class__.__name__
 
     @property
     def N(self) -> int:
         return self.__N
+    
+    @property
+    def e(self) -> float:
+        return self.__e
 
     def expected_reward(self) -> float:
         return self.R.E
@@ -81,7 +86,9 @@ class Bandit:
         # Since action is performed on the selected bandit increase by 1
         # the number of time the bandit was selected
         self.__N += 1
-        return self.R()
+        reward = self.R()
+        self.__e = ((self.__N - 1) * self.__e + reward) /  self.__N 
+        return reward
 
 
 class Bernoulli(Distribution):
@@ -327,7 +334,8 @@ if __name__=="__main__":
     # Number of time each bandit was selected
     for bandit in bandits:
         print(f"Bandit with E = {bandit.expected_reward()} "
-              f"was selected {bandit.N} times")
+              f"was selected {bandit.N} times. "
+              f"Estimated E = {bandit.e:.3f}")
 
     # In the case that Thompson Sampling is used, it is interesting
     # to see the Beta distribution of the expected reward
