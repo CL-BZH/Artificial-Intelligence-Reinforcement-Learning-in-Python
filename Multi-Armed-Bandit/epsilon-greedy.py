@@ -152,7 +152,7 @@ class Beta(Distribution):
 class BanditAlgorithm:
     """ Interface for all algorithms that are used for the bandit selection. """
     
-    def __init__(self, epsilon: Epsilon, bandits: List[Bandit]):
+    def __init__(self, bandits: List[Bandit], epsilon: Epsilon = None):
         self.epsilon = epsilon
         self.bandits = np.array(bandits)
         self.bandits_count = len(bandits)
@@ -161,8 +161,9 @@ class BanditAlgorithm:
         self.chosen = None # Keep track of the last chosen bandit
 
     def explore(self) -> Optional[int]:
-        if np.random.random() < self.epsilon():
-            return np.random.randint(len(self.bandits))
+        if self.epsilon != None:
+            if np.random.random() < self.epsilon():
+                return np.random.randint(len(self.bandits))
         return None
 
     def exploit(self) -> int:
@@ -192,8 +193,8 @@ class BanditAlgorithm:
 class EpsilonGreedy(BanditAlgorithm):
     """ Implementation of the Epsilon-Greedy algorithm for bandit selection """
 
-    def __init__(self, epsilon: Epsilon, bandits: List[Bandit]) -> None:
-        super().__init__(epsilon, bandits)
+    def __init__(self, bandits: List[Bandit], epsilon: Epsilon = None) -> None:
+        super().__init__(bandits, epsilon)
         self.bandits_Q: List[float] = np.zeros(self.bandits_count)
         
     def exploit(self) -> int:
@@ -208,11 +209,26 @@ class EpsilonGreedy(BanditAlgorithm):
     def plot(self):
         pass
 
+class OptimisticInitialValue(EpsilonGreedy):
+    """ Implementation of the Optimistic Initial Values algorithm for bandit selection """
+    
+    def __init__(self, bandits: List[Bandit], initialVal: float = 5) -> None:
+        super().__init__(bandits)
+        self.bandits_Q = initialVal * np.ones(self.bandits_count)
+        self.bandits_N = np.ones(self.bandits_count)
+    
+    def explore(self) -> Optional[int]:
+        return None
+    
+    def plot(self):
+        pass
+    
+
 class UCB(EpsilonGreedy):
     """ Implementation of the Upper-Confidence-Bound algorithm for bandit selection """
-    def __init__(self, epsilon: Epsilon, bandits: List[Bandit], c: float = 2):
+    def __init__(self, bandits: List[Bandit], epsilon: Epsilon, c: float = 2):
         self.c = c
-        super().__init__(epsilon, bandits)
+        super().__init__(bandits, epsilon)
     
     def exploit(self) -> int:
         if any(self.bandits_N == 0):
@@ -233,8 +249,8 @@ class TS(BanditAlgorithm):
     Thompson Sampling algorithm for bandit selection.
     The implementation is done only for a Bernoulli likelihood.
     """
-    def __init__(self, epsilon: Epsilon, bandits: List[Bandit]):
-        super().__init__(epsilon, bandits)
+    def __init__(self, bandits: List[Bandit], epsilon: Epsilon):
+        super().__init__(bandits, epsilon)
         self.__Beta = np.array([[1, 1] for _ in range(self.bandits_count)])
             
     def exploit(self) -> int:
@@ -309,7 +325,7 @@ if __name__=="__main__":
     # List of Bandit object 
     # bandits = [Bandit(Bernoulli(p)) for p in Bernoulli_p]
     # or
-    # bandits = [Bandit(Gaussian(mean, stdev)) for (mean, stdev) in Gaussian_params]
+    #bandits = [Bandit(Gaussian(mean, stdev)) for (mean, stdev) in Gaussian_params]
     bandits = [Bandit(Bernoulli(p)) for p in Bernoulli_p]
 
     # Epsilon for the epsilon-greedy algo
@@ -318,11 +334,13 @@ if __name__=="__main__":
     #epsilon = LinDecayEpsilon(EPSILON)
     
     # Algorithm for the bandit selection
-    # algorithm = EpsilonGreedy(epsilon, bandits)
+    #algorithm = EpsilonGreedy(bandits, epsilon)
     # or (UCB with c=0.8 for example)
-    # algorithm = UCB(epsilon, bandits, c=0.8)
+    #algorithm = UCB(bandits, epsilon, c=0.8)
     # or
-    algorithm = TS(epsilon, bandits)
+    #algorithm = TS(bandits, epsilon)
+    # or
+    algorithm = OptimisticInitialValue(bandits, 4)
 
     # Create the Test object and run
     test = Test(NUM_TRIALS, algorithm)
@@ -340,4 +358,4 @@ if __name__=="__main__":
     # In the case that Thompson Sampling is used, it is interesting
     # to see the Beta distribution of the expected reward
     algorithm.plot()
-       
+    
