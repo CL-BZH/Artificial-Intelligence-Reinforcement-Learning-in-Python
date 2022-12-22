@@ -249,8 +249,8 @@ class TS(BanditAlgorithm):
     Thompson Sampling algorithm for bandit selection.
     The implementation is done only for a Bernoulli likelihood.
     """
-    def __init__(self, bandits: List[Bandit], epsilon: Epsilon):
-        super().__init__(bandits, epsilon)
+    def __init__(self, bandits: List[Bandit]):
+        super().__init__(bandits)
         self.__Beta = np.array([[1, 1] for _ in range(self.bandits_count)])
             
     def exploit(self) -> int:
@@ -338,9 +338,9 @@ if __name__=="__main__":
     # or (UCB with c=0.8 for example)
     #algorithm = UCB(bandits, epsilon, c=0.8)
     # or
-    #algorithm = TS(bandits, epsilon)
+    algorithm = TS(bandits)
     # or
-    algorithm = OptimisticInitialValue(bandits, 4)
+    #algorithm = OptimisticInitialValue(bandits, 4)
 
     # Create the Test object and run
     test = Test(NUM_TRIALS, algorithm)
